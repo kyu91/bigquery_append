@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}작업 실행{% endblock %}
+
+{% block content %}
+<div class="mt-4 mb-3">
+    <h2>작업 실행</h2>
+    <p>아래에서 저장된 설정을 선택하고 작업을 실행하세요.</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label for="settingSelect" class="form-label"><strong>1. 설정 선택</strong></label>
+            <select class="form-select" id="settingSelect">
+                <option selected disabled>실행할 설정을 선택하세요...</option>
+                {% for setting in settings %}
+                <option value="{{ setting.id }}">{{ setting.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- 설정 상세 정보 및 작업 버튼 -->
+<div class="card mt-4" id="settingDetailsContainer" style="display: none;">
+    <div class="card-header">
+        <h5><strong>2. 설정 정보 확인 및 작업 실행</strong></h5>
+    </div>
+    <div class="card-body">
+        <div id="settingDetails"></div>
+        <div id="settingEditButtons" class="mb-3" style="display: flex; gap: 10px;">
+            <button class="btn btn-outline-secondary btn-sm" id="editBtn">수정</button>
+        </div>
+        <div id="settingEditFormContainer" style="display: none;"></div>
+        <hr>
+        <div class="btn-group w-100">
+            <button class="btn btn-success" onclick="runJob('create_table')">📋 테이블 생성</button>
+            <button class="btn btn-primary" onclick="runJob('append_data')">➕ 데이터 추가</button>
+            <button class="btn btn-warning" onclick="runJob('update_data')">🔄 데이터 덮어쓰기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 작업 결과 -->
+<div class="card mt-4" id="resultCard" style="display: none;">
+    <div class="card-header">
+        <h4>작업 결과</h4>
+    </div>
+    <div class="card-body">
+        <div id="loading" style="display: none;" class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">작업을 실행 중입니다...</p>
+        </div>
+        <div id="result"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentSetting = null;
+    let schemaFiles = {{ schema_files|tojson if schema_files is defined else '[]' }};
+
+    document.getElementById('settingSelect').addEventListener('change', async function() {
+        const settingId = this.value;
+        const detailsContainer = document.getElementById('settingDetailsContainer');
+        const detailsDiv = document.getElementById('settingDetails');
+        const editBtns = document.getElementById('settingEditButtons');
+        const editFormContainer = document.getElementById('settingEditFormContainer');
+        document.getElementById('resultCard').style.display = 'none';
+        editFormContainer.style.display = 'none';
+        editFormContainer.innerHTML = '';
+
+        if (!settingId || isNaN(settingId)) {
+            detailsContainer.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/settings/${settingId}`);
+            if (!response.ok) throw new Error('설정 정보를 불러오는 데 실패했습니다.');
+            currentSetting = await response.json();
+            detailsDiv.innerHTML = renderSettingDetails(currentSetting);
+            detailsContainer.style.display = 'block';
+            editBtns.style.display = 'flex';
+        } catch (error) {
+            alert(error.message);
+            detailsContainer.style.display = 'none';
+        }
+    });
+
+    function renderSettingDetails(setting) {
+        return `
+            <dl class="row">
+                <dt class="col-sm-3">타이틀</dt>
+                <dd class="col-sm-9">${setting.title}</dd>
+                <dt class="col-sm-3">시트 ID</dt>
+                <dd class="col-sm-9">${setting.sheet_id}</dd>
+                <dt class="col-sm-3">헤더 범위</dt>
+                <dd class="col-sm-9">${setting.header_range}</dd>
+                <dt class="col-sm-3">데이터 범위</dt>
+                <dd class="col-sm-9">${setting.data_range}</dd>
+                <dt class="col-sm-3">BQ 테이블 ID</dt>
+                <dd class="col-sm-9">${setting.bq_table_id}</dd>
+                <dt class="col-sm-3">스키마 파일</dt>
+                <dd class="col-sm-9">${setting.schema_csv}</dd>
+            </dl>
+        `;
+    }
+
+    function renderSettingForm(setting = null) {
+        return `
+        <form id="inlineSettingForm">
+            <div class="mb-2">
+                <label class="form-label">타이틀</label>
+                <input type="text" class="form-control" name="title" value="${setting ? setting.title : ''}" required>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">시트 ID</label>
+                <input type="text" class="form-control" name="sheet_id" value="${setting ? setting.sheet_id : ''}" required>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">헤더 범위</label>
+                    <input type="text" class="form-control" name="header_range" value="${setting ? setting.header_range : ''}" required>
+                </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">데이터 범위</label>
+                    <input type="text" class="form-control" name="data_range" value="${setting ? setting.data_range : ''}" required>
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">BQ 테이블 ID</label>
+                <input type="text" class="form-control" name="bq_table_id" value="${setting ? setting.bq_table_id : ''}" required>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">스키마 파일</label>
+                <select class="form-select" name="schema_csv" required>
+                    <option value="" disabled ${!setting || !setting.schema_csv ? 'selected' : ''}>업로드된 스키마 파일을 선택하세요...</option>
+                    ${schemaFiles.map(f => `<option value="${f}" ${(setting && setting.schema_csv === f) ? 'selected' : ''}>${f}</option>`).join('')}
+                </select>
+            </div>
+            <div class="mt-2" style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success btn-sm">저장</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="cancelEditBtn">취소</button>
+            </div>
+        </form>
+        `;
+    }
+
+    // 수정 버튼
+    document.getElementById('editBtn').onclick = function() {
+        const editFormContainer = document.getElementById('settingEditFormContainer');
+        editFormContainer.innerHTML = renderSettingForm(currentSetting);
+        editFormContainer.style.display = 'block';
+        document.getElementById('settingEditButtons').style.display = 'none';
+        bindInlineForm('edit');
+    };
+
+    function bindInlineForm(mode) {
+        const form = document.getElementById('inlineSettingForm');
+        document.getElementById('cancelEditBtn').onclick = function() {
+            form.parentElement.style.display = 'none';
+            document.getElementById('settingEditButtons').style.display = 'flex';
+        };
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            let url, method;
+            if (mode === 'edit') {
+                url = `/api/settings/${currentSetting.id}`;
+                method = 'PATCH';
+            } else {
+                url = '/api/settings';
+                method = 'POST';
+            }
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('저장되었습니다!');
+                    // 드롭다운, 상세정보, 버튼 모두 갱신
+                    location.reload();
+                } else {
+                    alert('저장 실패: ' + (result.error || '알 수 없는 오류'));
+                }
+            } catch (err) {
+                alert('저장 중 오류: ' + err.message);
+            }
+        };
+    }
+
+    async function runJob(jobName) {
+        const settingSelect = document.getElementById('settingSelect');
+        const settingId = settingSelect.value;
+
+        if (!settingId || isNaN(settingId)) {
+            alert('먼저 실행할 설정을 선택해주세요.');
+            return;
+        }
+
+        const resultCard = document.getElementById('resultCard');
+        const resultDiv = document.getElementById('result');
+        const loadingDiv = document.getElementById('loading');
+
+        resultCard.style.display = 'block';
+        loadingDiv.style.display = 'block';
+        resultDiv.innerHTML = '';
+
+        try {
+            const response = await fetch(`/run_job/${jobName}/${settingId}`, {
+                method: 'POST',
+            });
+            const data = await response.json();
+            
+            let resultHtml = '';
+            if (data.success) {
+                resultHtml = `<div class="alert alert-success">`;
+                resultHtml += `<strong>성공:</strong> ${data.details.message}<br>`;
+                
+                if (data.details.columns_count) {
+                    resultHtml += `<strong>컬럼 수:</strong> ${data.details.columns_count}<br>`;
+                }
+                if (data.details.rows_processed) {
+                    resultHtml += `<strong>처리된 행:</strong> ${data.details.rows_processed}<br>`;
+                }
+                 resultHtml += `</div>`;
+            } else {
+                resultHtml = `<div class="alert alert-danger">`;
+                resultHtml += `<strong>오류:</strong> ${data.message}<br>`;
+                if (data.error_details) {
+                    resultHtml += `<pre><code>${data.error_details}</code></pre>`;
+                }
+                resultHtml += `</div>`;
+            }
+            resultDiv.innerHTML = resultHtml;
+
+        } catch (error) {
+            resultDiv.innerHTML = `<div class="alert alert-danger"><strong>치명적 오류:</strong> ${error.toString()}</div>`;
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %} 

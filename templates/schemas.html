@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}스키마 관리{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+    <h2>스키마 관리</h2>
+</div>
+
+<!-- 스키마 업로드 폼 -->
+<div class="card mb-4">
+    <div class="card-header">
+        새 스키마 업로드
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('upload_schema_action') }}" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="schema_file" class="form-label">CSV 파일 선택</label>
+                <input class="form-control" type="file" id="schema_file" name="schema_file" accept=".csv" required>
+            </div>
+            <button type="submit" class="btn btn-primary">업로드</button>
+        </form>
+        <div class="form-text mt-3">
+            <strong>안내:</strong> 스키마 파일은 반드시 <code>기존 컬럼명,영어 컬럼명,데이터 타입</code> 순서의 헤더를 가진 CSV 형식이어야 합니다.
+        </div>
+    </div>
+</div>
+
+<!-- 업로드된 스키마 목록 -->
+<div class="card">
+    <div class="card-header">
+        업로드된 스키마 목록
+    </div>
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>파일명</th>
+                    <th class="text-end">작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in schema_files %}
+                <tr>
+                    <td>{{ file }}</td>
+                    <td class="text-end">
+                        <form action="{{ url_for('delete_schema_action', filename=file) }}" method="POST" class="d-inline" onsubmit="return confirm('정말 이 파일을 삭제하시겠습니까? 이 파일을 사용하는 설정이 있다면 더 이상 작동하지 않을 수 있습니다.');">
+                            <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" class="text-center">업로드된 스키마 파일이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}소개{% endblock %}
+
+{% block content %}
+<div class="mt-4 mb-4">
+    <h2>프로젝트 소개 및 가이드</h2>
+    <div class="card">
+        <div class="card-body">
+            <div id="readme-content">{{ readme_html|safe }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
