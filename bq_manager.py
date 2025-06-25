@@ -85,15 +85,28 @@ def _preprocess_dataframe(df, config):
         raise FileNotFoundError(f"스키마 파일을 찾을 수 없습니다: {config['schema_csv']}")
         
     schema_df = pd.read_csv(schema_path)
-    column_map = dict(zip(schema_df["기존 컬럼명"], schema_df["영어 컬럼명"]))
+    schema_columns = list(schema_df["기존 컬럼명"])
+    schema_english_columns = list(schema_df["영어 컬럼명"])
     column_types = dict(zip(schema_df["영어 컬럼명"], schema_df["데이터 타입"]))
-    ordered_columns = list(column_map.values())
-    
-    # 컬럼 변환 및 순서 정리
-    df.rename(columns=column_map, inplace=True)
-    df = df[[col for col in ordered_columns if col in df.columns]]
 
-    # 타입 변환
+    # 1. 시트 헤더와 스키마 컬럼명(한글) 순서 일치 검사
+    if list(df.columns) != schema_columns:
+        raise ValueError(
+            f"시트의 헤더와 스키마의 '기존 컬럼명' 순서가 일치하지 않습니다.\n"
+            f"시트 헤더: {df.columns.tolist()}\n"
+            f"스키마 컬럼: {schema_columns}"
+        )
+
+    # 2. 순서대로 한글 컬럼명 → 영어 컬럼명으로 변환
+    new_columns = schema_english_columns  # 스키마의 영어 컬럼명 순서 그대로 사용
+    
+    # 3. 영어 컬럼명 중복 체크
+    if len(new_columns) != len(set(new_columns)):
+        raise ValueError(f"영어 컬럼명에 중복이 있습니다: {new_columns}")
+    
+    df.columns = new_columns
+
+    # 4. 타입 변환
     for col, dtype in column_types.items():
         if col not in df.columns:
             continue
@@ -108,6 +121,11 @@ def _preprocess_dataframe(df, config):
             df[col] = pd.to_datetime(df[col], errors="coerce")
         elif dtype == "TIME":
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.time
+        elif dtype == "BOOL":
+            # 불린 값으로 변환 (True/False, 1/0, "TRUE"/"FALSE" 등)
+            df[col] = df[col].astype(str).str.upper()
+            df[col] = df[col].map({'TRUE': True, 'FALSE': False, '1': True, '0': False, 'YES': True, 'NO': False})
+            df[col] = df[col].fillna(False)  # 매핑되지 않은 값은 False로 처리
         else:
             df[col] = df[col].astype(str)
             
