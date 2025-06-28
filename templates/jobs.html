@@ -232,7 +232,19 @@
                 if (data.details.rows_processed) {
                     resultHtml += `<strong>처리된 행:</strong> ${data.details.rows_processed}<br>`;
                 }
-                 resultHtml += `</div>`;
+                resultHtml += `</div>`;
+                
+                // 로그 출력
+                if (data.details.logs && data.details.logs.length > 0) {
+                    resultHtml += `<div class="mt-3">`;
+                    resultHtml += `<h6><strong>작업 로그:</strong></h6>`;
+                    resultHtml += `<div class="border rounded p-3 bg-light" style="max-height: 300px; overflow-y: auto;">`;
+                    data.details.logs.forEach(log => {
+                        resultHtml += `<div class="mb-1"><small class="text-muted">${log}</small></div>`;
+                    });
+                    resultHtml += `</div>`;
+                    resultHtml += `</div>`;
+                }
             } else {
                 resultHtml = `<div class="alert alert-danger">`;
                 resultHtml += `<strong>오류:</strong> ${data.message}<br>`;

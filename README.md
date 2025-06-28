@@ -13,27 +13,37 @@ Google Sheets에서 BigQuery로 데이터를 관리하는 웹 기반 도구입�
 
 ## 📋 요구사항
 
-- Python 3.8+
+- Python 3.9+
+- [uv](https://github.com/astral-sh/uv) 0.7.16 이상 (초고속 패키지/가상환경 관리)
 - Google Cloud Service Account 키 파일 (`credentials.json`)
 - Google Sheets API 접근 권한
 - BigQuery API 접근 권한
 
-## 🛠️ 설치 및 실행
+## 🛠️ 설치 및 실행 (uv 기반)
 
-### 1. 가상환경 활성화
+### 1. uv 설치 (Homebrew 예시)
 ```bash
-source venv/bin/activate
+brew install astral-sh/uv/uv
 ```
 
-### 2. 필요한 패키지 설치
+### 2. 가상환경 생성 및 의존성 설치
 ```bash
-pip install -r requirements.txt
+uv venv
+uv pip install -r pyproject.toml
 ```
+
+또는 아래처럼 한 번에 패키지 설치도 가능합니다:
+```bash
+uv add
+```
+(이미 pyproject.toml에 dependencies가 정의되어 있으면 위 명령은 생략 가능)
 
 ### 3. 애플리케이션 실행
 ```bash
-python app.py
+uv run python app.py
 ```
+
+※ 별도의 가상환경 진입(source .venv/bin/activate) 없이 uv 명령어만으로 실행하면 됩니다.
 
 ### 4. 웹 브라우저에서 접속
 ```
